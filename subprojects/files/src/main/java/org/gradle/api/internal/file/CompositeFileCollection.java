@@ -95,7 +95,7 @@ public abstract class CompositeFileCollection extends AbstractFileCollection imp
 
     @Override
     public boolean isEmpty() {
-        for (FileCollection collection : getSourceCollections()) {
+        for (FileCollection collection : getSourceCollections()) { // TODO lazy?
             if (!collection.isEmpty()) {
                 return false;
             }

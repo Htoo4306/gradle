@@ -101,8 +101,8 @@ public class DefaultFileCollectionResolveContext implements ResolvableFileCollec
         return doResolve(new MinimalFileCollectionConverter());
     }
 
-    private <T> List<T> doResolve(Converter<? extends T> converter) {
-        List<T> result = new ArrayList<T>();
+    private <T> List<T> doResolve(Converter<? extends T> converter) { // TODO iterator?
+        List<T> result = new ArrayList<T>(queue.size());
         while (!queue.isEmpty()) {
             Object element = queue.remove(0);
             // TODO - need to sync with BuildDependenciesOnlyFileCollectionResolveContext
@@ -111,7 +111,7 @@ public class DefaultFileCollectionResolveContext implements ResolvableFileCollec
                 converter.convertInto(nestedContext, result, fileResolver);
             } else if (element instanceof FileCollectionContainer) {
                 FileCollectionContainer fileCollection = (FileCollectionContainer) element;
-                resolveNested(fileCollection, result, converter);
+                resolveNested(fileCollection);
             } else if (element instanceof FileCollection || element instanceof MinimalFileCollection) {
                 converter.convertInto(element, result, fileResolver);
             } else if (element instanceof Task) {
@@ -140,7 +140,8 @@ public class DefaultFileCollectionResolveContext implements ResolvableFileCollec
         return result;
     }
 
-    protected <T> void resolveNested(FileCollectionContainer fileCollection, List<T> result, Converter<? extends T> converter) {
+    /* Add nested elements to the front of the Queue */
+    private void resolveNested(FileCollectionContainer fileCollection) {
         addTo = queue.subList(0, 0);
         try {
             fileCollection.visitContents(this);
@@ -209,6 +210,7 @@ public class DefaultFileCollectionResolveContext implements ResolvableFileCollec
                     convertFileToFileTree(file, result);
                 }
             } else if (element instanceof FileCollection) {
+                // TODO coverage
                 FileCollection fileCollection = (FileCollection) element;
                 for (File file : fileCollection) {
                     convertFileToFileTree(file, result);
@@ -236,6 +238,7 @@ public class DefaultFileCollectionResolveContext implements ResolvableFileCollec
         @Override
         public void convertInto(Object element, Collection<? super MinimalFileCollection> result, PathToFileResolver resolver) {
             if (element instanceof DefaultFileCollectionResolveContext) {
+                // TODO coverage
                 DefaultFileCollectionResolveContext nestedContext = (DefaultFileCollectionResolveContext) element;
                 result.addAll(nestedContext.resolveAsMinimalFileCollections());
             } else if (element instanceof MinimalFileCollection) {
