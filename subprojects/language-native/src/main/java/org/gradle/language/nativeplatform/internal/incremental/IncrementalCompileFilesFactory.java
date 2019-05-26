@@ -16,7 +16,6 @@
 
 package org.gradle.language.nativeplatform.internal.incremental;
 
-import com.google.common.collect.ImmutableSet;
 import org.gradle.internal.hash.HashCode;
 import org.gradle.internal.snapshot.FileSystemSnapshotter;
 import org.gradle.language.nativeplatform.internal.Include;
@@ -117,7 +116,8 @@ public class IncrementalCompileFilesFactory {
             FileVisitResult result = visitFile(sourceFile, fileContent, visibleMacros, new HashSet<HashCode>(), existingHeaders);
             Set<IncludeFileEdge> includedFiles = new LinkedHashSet<IncludeFileEdge>();
             result.collectFilesInto(includedFiles, new HashSet<File>());
-            SourceFileState newState = new SourceFileState(fileContent, result.result == IncludeFileResolutionResult.UnresolvedMacroIncludes, ImmutableSet.copyOf(includedFiles));
+            boolean hasUnresolved = result.result == IncludeFileResolutionResult.UnresolvedMacroIncludes;
+            SourceFileState newState = new SourceFileState(fileContent, hasUnresolved, includedFiles);
             current.setState(sourceFile, newState);
             if (newState.isHasUnresolved()) {
                 hasUnresolvedHeaders = true;
@@ -130,7 +130,7 @@ public class IncrementalCompileFilesFactory {
                 // Source file has changed
                 return false;
             }
-            ImmutableSet<IncludeFileEdge> previousStateEdges = previousState.getEdges();
+            Set<IncludeFileEdge> previousStateEdges = previousState.getEdges();
             if (previousStateEdges.isEmpty()) {
                 // Source file has not changed and no include files
                 return true;
