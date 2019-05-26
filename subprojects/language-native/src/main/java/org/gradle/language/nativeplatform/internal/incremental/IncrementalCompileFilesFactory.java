@@ -130,16 +130,17 @@ public class IncrementalCompileFilesFactory {
                 // Source file has changed
                 return false;
             }
-            if (previousState.getEdges().isEmpty()) {
+            ImmutableSet<IncludeFileEdge> previousStateEdges = previousState.getEdges();
+            if (previousStateEdges.isEmpty()) {
                 // Source file has not changed and no include files
                 return true;
             }
 
             // Check each unique edge in the include file graph
-            Map<HashCode, File> includes = new HashMap<HashCode, File>(previousState.getEdges().size());
-            Set<File> headers = new HashSet<File>();
+            Map<HashCode, File> includes = new HashMap<HashCode, File>(previousStateEdges.size());
             includes.put(fileHash, sourceFile);
-            for (IncludeFileEdge includeFileEdge : previousState.getEdges()) {
+            List<File> headers = new ArrayList<>(previousStateEdges.size());
+            for (IncludeFileEdge includeFileEdge : previousStateEdges) {
                 File includedFrom = includeFileEdge.getIncludedBy() != null ? includes.get(includeFileEdge.getIncludedBy()) : null;
                 SourceIncludesResolver.IncludeFile includeFile = sourceIncludesResolver.resolveInclude(includedFrom, includeFileEdge.getIncludePath());
                 if (includeFile == null) {
