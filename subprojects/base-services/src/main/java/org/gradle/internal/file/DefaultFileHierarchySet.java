@@ -90,7 +90,7 @@ public class DefaultFileHierarchySet {
 
         @Override
         public boolean contains(String path) {
-            return rootNode.contains(path, 0);
+            return rootNode.contains(path, 0); // TODO memoize?
         }
 
         @Override
@@ -181,7 +181,7 @@ public class DefaultFileHierarchySet {
          * This uses an optimized version of {@link String#regionMatches(int, String, int, int)}
          * which does not check for negative indices or integer overflow.
          */
-        boolean isChildOfOrThis(String filePath, int offset) {
+        boolean isChildOfOrThis(String filePath, int offset) { // TODO optimize
             int pathLength = filePath.length();
             int prefixLength = prefix.length();
             int endOfThisSegment = prefixLength + offset;
@@ -197,11 +197,10 @@ public class DefaultFileHierarchySet {
         }
 
         boolean contains(String filePath, int offset) {
-            if (!isChildOfOrThis(filePath, offset)) {
-                return false;
-            }
             if (children.isEmpty()) {
                 return true;
+            } else if (!isChildOfOrThis(filePath, offset)) {
+                return false;
             }
 
             int startNextSegment = offset + prefix.length() + 1;

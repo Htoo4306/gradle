@@ -16,10 +16,10 @@
 
 package org.gradle.language.nativeplatform.internal.incremental;
 
-import com.google.common.base.Objects;
 import org.gradle.internal.hash.HashCode;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 public class IncludeFileEdge {
     private final String includePath;
@@ -48,14 +48,15 @@ public class IncludeFileEdge {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == this) {
+        if (this == obj) {
             return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
+        } else if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
         IncludeFileEdge other = (IncludeFileEdge) obj;
-        return includePath.equals(other.includePath) && Objects.equal(includedBy, other.includedBy) && resolvedTo.equals(other.resolvedTo);
+        return Objects.equals(includePath, other.includePath)
+            && Objects.equals(includedBy, other.includedBy)
+            && Objects.equals(resolvedTo, other.resolvedTo);
     }
 
     @Override
