@@ -85,7 +85,7 @@ public class IgnoredPathCompareStrategy extends AbstractFingerprintCompareStrate
         }
 
         List<Map.Entry<HashCode, FilePathWithType>> unaccountedForPreviousEntries = Lists.newArrayList(unaccountedForPreviousFiles.entries());
-        Collections.sort(unaccountedForPreviousEntries, ENTRY_COMPARATOR);
+        Collections.sort(unaccountedForPreviousEntries, ENTRY_COMPARATOR); // TODO why are we sorting based on a hash?
         for (Map.Entry<HashCode, FilePathWithType> unaccountedForPreviousEntry : unaccountedForPreviousEntries) {
             FilePathWithType removedFile = unaccountedForPreviousEntry.getValue();
             DefaultFileChange removed = DefaultFileChange.removed(removedFile.getAbsolutePath(), propertyTitle, removedFile.getFileType(), IgnoredPathFingerprintingStrategy.IGNORED_PATH);

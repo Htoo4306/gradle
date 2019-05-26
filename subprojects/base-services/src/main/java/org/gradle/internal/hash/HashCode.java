@@ -18,29 +18,24 @@ package org.gradle.internal.hash;
 
 import com.google.common.primitives.Ints;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * An immutable hash code. Must be 4-255 bytes long.
  * Inspired by the Google Guava project – https://github.com/google/guava.
  */
-public class HashCode implements Serializable, Comparable<HashCode> {
+public abstract class HashCode implements Serializable, Comparable<HashCode> {
     private static final int MIN_NUMBER_OF_BYTES = 4;
     private static final int MAX_NUMBER_OF_BYTES = 255;
     private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
 
-    private final byte[] bytes;
+    private final int hashCode;
 
-    private long hashCode;
-
-    private HashCode(byte[] bytes) {
-        this.bytes = bytes;
-    }
-
-    static HashCode fromBytesNoCopy(byte[] bytes) {
-        return new HashCode(bytes);
+    protected HashCode(int hashCode) {
+        this.hashCode = hashCode;
     }
 
     public static HashCode fromBytes(byte[] bytes) {
@@ -48,12 +43,18 @@ public class HashCode implements Serializable, Comparable<HashCode> {
         if (bytes.length < MIN_NUMBER_OF_BYTES || bytes.length > MAX_NUMBER_OF_BYTES) {
             throw new IllegalArgumentException(String.format("Invalid hash code length: %d bytes", bytes.length));
         }
-        return fromBytesNoCopy(bytes.clone());
+
+        int hashCode = Arrays.hashCode(bytes);
+        if (bytes.length == 16) {
+            return new HashCode16(hashCode, bytes);
+        } else {
+            return new HashCodeN(hashCode, bytes);
+        }
     }
 
     public static HashCode fromInt(int value) {
         byte[] bytes = Ints.toByteArray(value); // Big-endian
-        return fromBytesNoCopy(bytes);
+        return fromBytes(bytes);
     }
 
     public static HashCode fromString(String string) {
@@ -72,7 +73,7 @@ public class HashCode implements Serializable, Comparable<HashCode> {
             bytes[i / 2] = (byte) (ch1 + ch2);
         }
 
-        return fromBytesNoCopy(bytes);
+        return fromBytes(bytes);
     }
 
     private static int decode(char ch) {
@@ -88,81 +89,93 @@ public class HashCode implements Serializable, Comparable<HashCode> {
         throw new IllegalArgumentException("Illegal hexadecimal character: " + ch);
     }
 
-    public int length() {
-        return bytes.length;
-    }
-
-    public byte[] toByteArray() {
-        return bytes.clone();
-    }
-
     @Override
     public int hashCode() {
-        if (hashCode == 0) {
-            hashCode = (bytes[0] & 0xFF)
-                | ((bytes[1] & 0xFF) << 8)
-                | ((bytes[2] & 0xFF) << 16)
-                | ((bytes[3] & 0xFF) << 24)
-                // Make sure it's always > 0 but without affecting the lower 32 bits
-                | (1L << 32);
-        }
-        return (int) hashCode;
+        return hashCode;
     }
 
     @Override
-    public boolean equals(@Nullable Object obj) {
-        if (obj == this) {
-            return true;
-        }
-
-        if (obj == null || obj.getClass() != HashCode.class) {
-            return false;
-        }
-
-        byte[] a = bytes;
-        byte[] b = ((HashCode) obj).bytes;
-        int length = a.length;
-
-        if (b.length != length) {
-            return false;
-        }
-
-        for (int i = 0; i < length; i++) {
-            if (a[i] != b[i]) {
-                return false;
-            }
-        }
-
-        return true;
+    public int compareTo(HashCode o) {
+        return Integer.compare(hashCode, o.hashCode); // TODO why are we sorting based on a hash?
     }
 
     @Override
-    public int compareTo(@Nonnull HashCode o) {
-        byte[] bytes2 = o.bytes;
-        int result;
-        int len1 = bytes.length;
-        int len2 = bytes2.length;
-        int length = Math.min(len1, len2);
-        for (int idx = 0; idx < length; idx++) {
-            result = bytes[idx] - bytes2[idx];
-            if (result != 0) {
-                return result;
-            }
-        }
-        return len1 - len2;
-    }
+    public abstract boolean equals(@Nullable Object obj);
+
+    public abstract int length();
+
+    public abstract byte[] toByteArray();
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(2 * bytes.length);
-        for (byte b : bytes) {
+        StringBuilder sb = new StringBuilder(2 * length());
+        for (byte b : toByteArray()) {
             sb.append(HEX_DIGITS[(b >> 4) & 0xf]).append(HEX_DIGITS[b & 0xf]);
         }
         return sb.toString();
     }
+}
 
-    // Package private accessor used by MessageDigestHasher.putHash for performance reasons
-    byte[] getBytes() {
-        return bytes;
+class HashCode16 extends HashCode {
+    private final long long1;
+    private final long long2;
+
+    HashCode16(int hashCode, byte[] bytes) {
+        super(hashCode);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        this.long1 = buffer.getLong();
+        this.long2 = buffer.getLong();
+    }
+
+    @Override
+    public int length() {
+        return 16;
+    }
+
+    public boolean equals(@Nullable Object obj) {
+        if (obj == this) {
+            return true;
+        } else if (obj == null || obj.getClass() != HashCode16.class) {
+            return false;
+        }
+        HashCode16 that = (HashCode16) obj;
+        return long1 == that.long1
+            && long2 == that.long2;
+    }
+
+    @Override
+    public byte[] toByteArray() {
+        return ByteBuffer.allocate(length())
+            .putLong(long1)
+            .putLong(long2)
+            .array();
+    }
+}
+
+class HashCodeN extends HashCode {
+    private final byte[] bytes;
+
+    HashCodeN(int hashCode, byte[] bytes) {
+        super(hashCode);
+        this.bytes = bytes.clone();
+    }
+
+    @Override
+    public int length() {
+        return bytes.length;
+    }
+
+    public boolean equals(@Nullable Object obj) {
+        if (obj == this) {
+            return true;
+        } else if (obj == null || obj.getClass() != HashCodeN.class) {
+            return false;
+        }
+        HashCodeN that = (HashCodeN) obj;
+        return Arrays.equals(bytes, that.bytes);
+    }
+
+    public byte[] toByteArray() {
+        return bytes.clone();
     }
 }
